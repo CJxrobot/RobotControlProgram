@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import subprocess
 import os
-
+## Movement, move to, move along, vector_motion, .....degree motion...etc
 class RoboCupTacticalBoard:
     def __init__(self, root):
         self.root = root
