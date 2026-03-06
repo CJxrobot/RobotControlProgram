@@ -144,7 +144,7 @@ class RoboCupTacticalBoard:
         
         tk.Label(top, text=" Rot:").pack(side=tk.LEFT)
         rot_m = ttk.Combobox(top, values=["Degree", "Face Ball", "Face Blue", "Face Yellow", "Spin"], width=10)
-        rot_m.set("Face Ball"); rot_m.pack(side=tk.LEFT)
+        rot_m.set("Degree"); rot_m.pack(side=tk.LEFT)
         rot_v = tk.Entry(top, width=4); rot_v.insert(0, "90"); rot_v.pack(side=tk.LEFT)
 
         def update_vis(e=None):
