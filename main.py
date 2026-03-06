@@ -1,33 +1,30 @@
 import tkinter as tk
 from tkinter import ttk
-import os
 
 class RoboCupTacticalBoard:
     def __init__(self, root):
         self.root = root
-        self.root.title("RoboCup Junior - Symmetrical Tactical Builder")
-        self.root.geometry("1600x850")
+        self.root.title("RoboCup Junior - Pro Tactical Builder")
+        self.root.geometry("1600x900")
         self.step_count = 0
         self.steps = [] 
-        self.last_x, self.last_y = 0, 0
-
-        # Goal State (True = Blue Top, False = Yellow Top)
+        self.last_x, self.last_y = 0.0, 0.0
         self.blue_on_top = True
-        
+
         # --- LEFT SIDE: FIELD MAP ---
         self.field_frame = tk.Frame(root, bg="#222")
         self.field_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
         
-        self.pos_label = tk.Label(self.field_frame, text="X=0, Y=0", fg="#00FF00", bg="#222", font=("Courier", 12, "bold"))
+        self.pos_label = tk.Label(self.field_frame, text="X=0.0, Y=0.0", fg="#00FF00", bg="#222", font=("Courier", 12, "bold"))
         self.pos_label.pack(pady=5)
 
+        # Canvas matching your 364x486 resolution
         self.canvas = tk.Canvas(self.field_frame, width=364, height=486, bg="#006400", highlightthickness=2, highlightbackground="white")
         self.canvas.pack(pady=5)
-        self.canvas.create_line(24, 24, 340, 24, fill="white")
-        self.canvas.create_line(24, 462, 340, 462, fill="white")
-        self.canvas.create_line(24, 24, 24, 462, fill="white")
-        self.canvas.create_line(340, 24, 340, 462, fill="white")
+        self.draw_field_markings()
         self.canvas.bind("<Button-1>", self.on_field_click)
+
+        tk.Button(self.field_frame, text="SWAP GOALS ⇄", command=self.swap_goals, bg="#444", fg="white", font=("Arial", 10, "bold")).pack(fill=tk.X, pady=5)
 
         # --- RIGHT SIDE: STEP LIST ---
         self.right_frame = tk.Frame(root)
@@ -37,190 +34,189 @@ class RoboCupTacticalBoard:
         self.control_bar.pack(fill=tk.X, pady=5)
         
         tk.Button(self.control_bar, text="+ ADD TASK", command=self.add_sentence, bg="#28a745", fg="white", font=("Arial", 11, "bold"), padx=20).pack(side=tk.LEFT)
-        tk.Button(self.control_bar, text="FLASH TO ROBOT", command=self.generate_logic, bg="#007bff", fg="white", font=("Arial", 11, "bold"), padx=20).pack(side=tk.RIGHT)
-        # SWAP BUTTON for Goals
-        self.draw_field_markings()
-        tk.Button(self.field_frame, text="SWAP GOALS ⇄", command=self.swap_goals, bg="#555", fg="white", font=("Arial", 10, "bold")).pack(fill=tk.X, pady=5)
-        
+        tk.Button(self.control_bar, text="GENERATE .INO", command=self.generate_logic, bg="#007bff", fg="white", font=("Arial", 11, "bold"), padx=20).pack(side=tk.RIGHT)
+
+        # Scrollable container for steps
         self.container = tk.Canvas(self.right_frame)
         self.scroll_frame = tk.Frame(self.container)
         self.scroller = tk.Scrollbar(self.right_frame, orient="vertical", command=self.container.yview)
         self.container.configure(yscrollcommand=self.scroller.set)
-
         self.scroller.pack(side=tk.RIGHT, fill=tk.Y)
         self.container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.container_window = self.container.create_window((0, 0), window=self.scroll_frame, anchor="nw")
         
         self.scroll_frame.bind("<Configure>", lambda e: self.container.configure(scrollregion=self.container.bbox("all")))
         self.container.bind("<Configure>", lambda e: self.container.itemconfig(self.container_window, width=e.width))
-    
+
     def draw_field_markings(self):
         self.canvas.delete("field_base")
+        # Field Boundary
+        self.canvas.create_rectangle(24, 24, 340, 462, outline="white", width=2, tags="field_base") 
         
-        # Define Goal Positions based on state
-        top_color = "blue" if self.blue_on_top else "yellow"
-        bot_color = "yellow" if self.blue_on_top else "blue"
-
-        # Top Goal Rectangle
-        self.canvas.create_rectangle(122, 0, 242, 24, outline=top_color, fill=top_color, tags="field_base")
-        # Bottom Goal Rectangle
-        self.canvas.create_rectangle(122, 462, 242, 486, outline=bot_color, fill=bot_color, tags="field_base")
+        top_c = "blue" if self.blue_on_top else "yellow"
+        bot_c = "yellow" if self.blue_on_top else "blue"
+        
+        # Goals (Solid Fill)
+        self.canvas.create_rectangle(122, 0, 242, 24, fill=top_c, outline="white", tags="field_base")
+        self.canvas.create_rectangle(122, 462, 242, 486, fill=bot_c, outline="white", tags="field_base")
+        # Midline
+        self.canvas.create_line(24, 243, 340, 243, fill="white", dash=(5,5), tags="field_base")
 
     def swap_goals(self):
-        """Switches the positions of the blue and yellow goal rectangles."""
         self.blue_on_top = not self.blue_on_top
         self.draw_field_markings()
-        # Keep the crosshair and axis lines visible after swap
-        self.refresh_axis_lines()
 
     def on_field_click(self, event):
-        self.last_x = (event.x - 182) * 0.5
-        self.last_y = (243 - event.y) * 0.5
+        # Coordinates: Center is (182, 243). Scaled by 0.5.
+        self.last_x = round((event.x - 182) * 0.5, 1)
+        self.last_y = round((243 - event.y) * 0.5, 1)
         self.draw_target_visuals(event.x, event.y)
         self.pos_label.config(text=f"X={self.last_x}, Y={self.last_y}")
 
     def draw_target_visuals(self, cx, cy):
-        """Draws a large crosshair for better alignment."""
         self.canvas.delete("pt")
-        # Universal Crosshair
-        self.canvas.create_line(cx-100, cy, cx+100, cy, fill="yellow", tags="pt", width=1)
-        self.canvas.create_line(cx, cy-100, cx, cy+100, fill="yellow", tags="pt", width=1)
-        # Accurate Center
-        self.canvas.create_oval(cx-22, cy-22, cx+22, cy+22, outline="red", width=2, tags="pt")
-        self.canvas.create_oval(cx-1, cy-1, cx+1, cy+1, fill="white", tags="pt")
-        self.refresh_axis_lines()
+        self.canvas.create_line(cx-100, cy, cx+100, cy, fill="yellow", tags="pt")
+        self.canvas.create_line(cx, cy-100, cx, cy+100, fill="yellow", tags="pt")
+        self.canvas.create_oval(cx-8, cy-8, cx+8, cy+8, outline="red", width=2, tags="pt")
 
-    def refresh_axis_lines(self):
-        self.canvas.delete("axis_line")
-        for s in self.steps:
-            target_val = s['target'].get()
-            try:
-                if target_val == "Axis X":
-                    x_pos = int(s['x_ent'].get()) + 150
-                    self.canvas.create_line(x_pos, 0, x_pos, 450, fill="cyan", dash=(4, 4), tags="axis_line")
-                elif target_val == "Axis Y":
-                    y_pos = 225 - int(s['y_ent'].get())
-                    self.canvas.create_line(0, y_pos, 300, y_pos, fill="cyan", dash=(4, 4), tags="axis_line")
-            except: pass
+    def create_multi_cond_section(self, parent, title):
+        section_frame = tk.LabelFrame(parent, text=title, font=("Arial", 9, "bold"))
+        section_frame.pack(side=tk.LEFT, padx=5, fill=tk.BOTH, expand=True)
+        
+        cond_rows = []
+        rows_container = tk.Frame(section_frame)
+        rows_container.pack(fill=tk.BOTH)
 
-    def create_condition_block(self, parent, label_text):
-        """Standardized Variable | Op | Val block."""
-        frame = tk.Frame(parent)
-        frame.pack(side=tk.LEFT, padx=15)
-        tk.Label(frame, text=label_text, font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
-        var = ttk.Combobox(frame, values=["Ball.Dist", "Goal.Dist", "Timer", "Line.Value", "None"], width=12)
-        var.set("None")
-        var.pack(side=tk.LEFT, padx=2)
-        op = ttk.Combobox(frame, values=[">", "<", "==", "!="], width=4)
-        op.set(">")
-        op.pack(side=tk.LEFT, padx=2)
-        val = tk.Entry(frame, width=7)
-        val.insert(0, "0")
-        val.pack(side=tk.LEFT, padx=2)
-        return var, op, val
+        def add_row():
+            row = tk.Frame(rows_container)
+            row.pack(fill=tk.X, pady=1)
+            
+            logic = ttk.Combobox(row, values=["&&", "||"], width=3)
+            if len(cond_rows) > 0:
+                logic.set("&&")
+                logic.pack(side=tk.LEFT)
+            else:
+                logic.set("") # First condition row has no operator
+            
+            var = ttk.Combobox(row, values=["Ball.Dist", "Blue.Dist", "Yellow.Dist", "Timer", "Line.Exist", "None"], width=10)
+            var.set("None"); var.pack(side=tk.LEFT, padx=2)
+            
+            op = ttk.Combobox(row, values=[">", "<", "==", "!="], width=3)
+            op.set(">"); op.pack(side=tk.LEFT)
+            
+            val = tk.Entry(row, width=5); val.insert(0, "0"); val.pack(side=tk.LEFT, padx=2)
+            cond_rows.append({'logic': logic, 'var': var, 'op': op, 'val': val})
+
+        tk.Button(section_frame, text="+", command=add_row, width=2, bg="#eee").pack(anchor="ne")
+        add_row()
+        return cond_rows
 
     def add_sentence(self):
         self.step_count += 1
         step_id = self.step_count
-        row_frame = tk.Frame(self.scroll_frame, pady=15, padx=10, highlightbackground="#555", highlightthickness=2)
-        row_frame.pack(fill=tk.X, pady=8, padx=5)
+        row_frame = tk.Frame(self.scroll_frame, pady=10, highlightbackground="#555", highlightthickness=1)
+        row_frame.pack(fill=tk.X, pady=5, padx=5)
 
-        # --- TOP ROW: ACTION (GRID-BASED) ---
-        top_row = tk.Frame(row_frame)
-        top_row.pack(fill=tk.X)
-
-        tk.Label(top_row, text=f"STEP {step_id}:", font=("Arial", 11, "bold"), fg="#007bff").grid(row=0, column=0, padx=5)
-        tk.Label(top_row, text="Do").grid(row=0, column=1)
-        move = ttk.Combobox(top_row, values=["Linear", "Curved", "Stay"], width=10)
-        move.set("Linear"); move.grid(row=0, column=2, padx=5)
-
-        tk.Label(top_row, text="at Speed").grid(row=0, column=3)
-        speed = tk.Entry(top_row, width=5); speed.insert(0, "10"); speed.grid(row=0, column=4, padx=5)
+        # --- Top Row: Movement & Rotation Settings ---
+        top = tk.Frame(row_frame)
+        top.pack(fill=tk.X, padx=5)
         
-        tk.Label(top_row, text="To Target").grid(row=0, column=5)
-        target = ttk.Combobox(top_row, values=["Position(X,Y)", "Axis X", "Axis Y", "Ball", "Goal"], width=15)
-        target.set("Position(X,Y)"); target.grid(row=0, column=6, padx=5)
+        tk.Label(top, text=f"STEP {step_id}", font=("Arial", 10, "bold"), fg="#007bff").pack(side=tk.LEFT)
+        
+        tk.Label(top, text=" Style:").pack(side=tk.LEFT)
+        move_style = ttk.Combobox(top, values=["Linear", "Curved", "Stay"], width=8)
+        move_style.set("Linear"); move_style.pack(side=tk.LEFT, padx=2)
 
-        # Reserved Slots (Columns 7 and 8)
-        x_ent = tk.Entry(top_row, width=6, font=("Arial", 10, "bold"), fg="red");
-        y_ent = tk.Entry(top_row, width=6, font=("Arial", 10, "bold"), fg="red");
-
-        tk.Label(top_row, text="& Rotation").grid(row=0, column=9, padx=5)
-        rot_m = ttk.Combobox(top_row, values=["Degree", "Face Ball", "Face Green Goal", "Face Yellow Goal", "Spin"], width=12)
-        rot_m.set("Face Ball"); rot_m.grid(row=0, column=10, padx=2)
-        rot_v = tk.Entry(top_row, width=5); rot_v.insert(0, "0"); rot_v.grid(row=0, column=11, padx=2)
+        tk.Label(top, text=" Target:").pack(side=tk.LEFT)
+        target = ttk.Combobox(top, values=["Position(X,Y)", "Axis X", "Axis Y", "Ball", "Blue Goal", "Yellow Goal", "Stay"], width=12)
+        target.set("Position(X,Y)"); target.pack(side=tk.LEFT, padx=2)
+        
+        # Coordinate entries (Managed by update_vis)
+        x_ent = tk.Entry(top, width=6, fg="red", font=("Arial", 9, "bold"))
+        y_ent = tk.Entry(top, width=6, fg="red", font=("Arial", 9, "bold"))
+        
+        # Rest of basic parameters
+        tk.Label(top, text=" Spd:").pack(side=tk.LEFT)
+        speed = tk.Entry(top, width=4); speed.insert(0, "60"); speed.pack(side=tk.LEFT)
+        
+        tk.Label(top, text=" Rot:").pack(side=tk.LEFT)
+        rot_m = ttk.Combobox(top, values=["Face Ball", "Face Blue", "Face Yellow", "Degree", "Spin"], width=10)
+        rot_m.set("Face Ball"); rot_m.pack(side=tk.LEFT)
+        rot_v = tk.Entry(top, width=4); rot_v.insert(0, "0"); rot_v.pack(side=tk.LEFT)
 
         def update_vis(e=None):
-            # 1. Hide both first to reset the "reserved" area
-            x_ent.grid_forget()
-            y_ent.grid_forget()
+            """Restores Dynamic Visibility for X/Y coordinates."""
+            # Clear them from view first
+            x_ent.pack_forget()
+            y_ent.pack_forget()
             
             mode = target.get()
-            
-            # 2. Handle Position Logic
+            # Repack between 'Target' and 'Spd'
             if mode == "Position(X,Y)":
-                x_ent.grid(row=0, column=7, padx=2)
-                y_ent.grid(row=0, column=8, padx=2)
-                # Clear and Update X
-                x_ent.delete(0, tk.END)
-                x_ent.insert(0, str(self.last_x))
-                # Clear and Update Y
-                y_ent.delete(0, tk.END)
-                y_ent.insert(0, str(self.last_y))
-                
-            # 3. Handle Axis X Logic
+                x_ent.pack(after=target, side=tk.LEFT, padx=1)
+                y_ent.pack(after=x_ent, side=tk.LEFT, padx=1)
+                x_ent.delete(0, tk.END); x_ent.insert(0, str(self.last_x))
+                y_ent.delete(0, tk.END); y_ent.insert(0, str(self.last_y))
             elif mode == "Axis X":
-                x_ent.grid(row=0, column=7, padx=2)
-                x_ent.delete(0, tk.END)
-                x_ent.insert(0, str(self.last_x))
-                
-            # 4. Handle Axis Y Logic
+                x_ent.pack(after=target, side=tk.LEFT, padx=1)
+                x_ent.delete(0, tk.END); x_ent.insert(0, str(self.last_x))
             elif mode == "Axis Y":
-                y_ent.grid(row=0, column=8, padx=2)
-                y_ent.delete(0, tk.END)
-                y_ent.insert(0, str(self.last_y))
-            
-            self.refresh_axis_lines()
+                y_ent.pack(after=target, side=tk.LEFT, padx=1)
+                y_ent.delete(0, tk.END); y_ent.insert(0, str(self.last_y))
 
-        target.bind("<<ComboboxSelected>>", update_vis); update_vis()
-        
-        tk.Button(top_row, text="✖ REMOVE", bg="#dc3545", fg="white", font=("Arial", 8, "bold"), 
-                  command=lambda: self.remove_step(row_frame, step_id)).grid(row=0, column=12, padx=20)
+        target.bind("<<ComboboxSelected>>", update_vis)
+        update_vis() # Initial run
 
-        # --- BOTTOM ROW: LOGIC ---
-        bot_row = tk.Frame(row_frame, pady=5)
-        bot_row.pack(fill=tk.X)
+        tk.Button(top, text="✖", bg="#dc3545", fg="white", font=("Arial", 8, "bold"), command=lambda: row_frame.destroy()).pack(side=tk.RIGHT)
 
-        w_var, w_op, w_val = self.create_condition_block(bot_row, "WHILE")
-        u_var, u_op, u_val = self.create_condition_block(bot_row, "UNTIL")
-
-        tk.Label(bot_row, text="THEN", font=("Arial", 10, "bold"), fg="#28a745").pack(side=tk.LEFT, padx=10)
-        res = ttk.Combobox(bot_row, values=["Next Step", "End Mission"], width=12); res.set("Next Step"); res.pack(side=tk.LEFT)
+        # --- Bottom Row: Complex Logic Sections ---
+        bot = tk.Frame(row_frame)
+        bot.pack(fill=tk.X, pady=5)
+        w_conds = self.create_multi_cond_section(bot, "WHILE (Stay in loop if...)")
+        u_conds = self.create_multi_cond_section(bot, "UNTIL (Break loop if...)")
 
         self.steps.append({
-            'id': step_id, 'target': target, 'x_ent': x_ent, 'y_ent': y_ent,
-            'move': move, 'speed': speed, 'rot_m': rot_m, 'rot_v': rot_v,
-            'w_var': w_var, 'w_op': w_op, 'w_val': w_val,
-            'u_var': u_var, 'u_op': u_op, 'u_val': u_val, 'res': res
+            'id': step_id, 'move': move_style, 'target': target, 'x_ent': x_ent, 'y_ent': y_ent,
+            'speed': speed, 'rot_m': rot_m, 'rot_v': rot_v,
+            'w_conds': w_conds, 'u_conds': u_conds, 'frame': row_frame
         })
 
-    def remove_step(self, frame, s_id):
-        frame.destroy()
-        self.steps = [s for s in self.steps if s['id'] != s_id]
-        self.refresh_axis_lines()
-
     def generate_logic(self):
+        # Enum Mappings
+        s_map = {"None": "S_NONE", "Ball.Dist": "S_BALL_DIST", "Blue.Dist": "S_BLUE_DIST", "Yellow.Dist": "S_YELLOW_DIST", "Timer": "S_TIMER", "Line.Exist": "S_LINE_EXIST"}
+        m_map = {"Position(X,Y)": "M_POS_XY", "Axis X": "M_AXIS_X", "Axis Y": "M_AXIS_Y", "Ball": "M_BALL", "Blue Goal": "M_BLUE_GOAL", "Yellow Goal": "M_YELLOW_GOAL", "Stay": "M_STAY"}
+        style_map = {"Linear": "STYLE_LINEAR", "Curved": "STYLE_CURVED", "Stay": "STYLE_STAY"}
+        rot_map = {"Face Ball": "R_FACE_BALL", "Face Blue": "R_FACE_BLUE", "Face Yellow": "R_FACE_YELLOW", "Degree": "R_DEGREE", "Spin": "R_SPIN"}
+
+        def build_expr(conds):
+            parts = []
+            for i, c in enumerate(conds):
+                var = s_map.get(c['var'].get(), "S_NONE")
+                if var == "S_NONE" and i == 0: return "true"
+                logic = f" {c['logic'].get()} " if i > 0 and c['logic'].get() else ""
+                parts.append(f"{logic}Check({var}, '{c['op'].get()}', {c['val'].get()})")
+            return "".join(parts) if parts else "true"
+
         with open("robot_mission.ino", "w") as f:
-            f.write("#include <Robot.h>\nvoid setup(){ Robot_Init(); }\nvoid loop(){\n")
+            f.write("#include <Robot.h>\n#include \"RobotConstants.h\"\n\nvoid setup() {\n  Robot_Init();\n}\n\nvoid loop() {\n")
             for s in self.steps:
-                f.write(f"  // Step {s['id']}\n")
-                f.write(f"  while(Check('{s['w_var'].get()}', '{s['w_op'].get()}', {s['w_val'].get()}) && \n")
-                f.write(f"        !Check('{s['u_var'].get()}', '{s['u_op'].get()}', {s['u_val'].get()})) {{\n")
-                f.write(f"    ExecuteMove('{s['target'].get()}', {s['speed'].get()}, {s['x_ent'].get()}, {s['y_ent'].get()});\n")
-                f.write(f"    UpdateRotation('{s['rot_m'].get()}', {s['rot_v'].get()});\n")
-                f.write(f"  }}\n")
-            f.write("  Stop(); while(1);\n}")
-        print("C++ Logic Saved to robot_mission.ino")
+                if not s['frame'].winfo_exists(): continue
+                while_expr = build_expr(s['w_conds'])
+                until_expr = build_expr(s['u_conds'])
+                
+                f.write(f"  // STEP {s['id']}\n")
+                f.write(f"  while({while_expr}){{\n")
+                f.write("    UpdateSensors();\n")
+                # Ensure coordinate values are safe
+                x_val = s['x_ent'].get() if s['x_ent'].winfo_ismapped() else "0"
+                y_val = s['y_ent'].get() if s['y_ent'].winfo_ismapped() else "0"
+                
+                f.write(f"    ExecuteMove({style_map[s['move'].get()]}, {m_map[s['target'].get()]}, {s['speed'].get()}, {x_val}, {y_val});\n")
+                f.write(f"    UpdateRotation({rot_map[s['rot_m'].get()]}, {s['rot_v'].get()});\n")
+                f.write(f"    if({until_expr}) break;\n")
+                f.write("  }\n\n")
+            f.write("  Stop();\n  while(1);\n}\n")
+        print("Mission code generated successfully!")
 
 if __name__ == "__main__":
     root = tk.Tk()
