@@ -23,5 +23,14 @@ bool Check(SensorType type, char op, float threshold);
 void ExecuteMove(MoveStyle style, MoveType target, int speed, float x = 0, float y = 0);
 void UpdateRotation(RotationMode mode, int value);
 void Stop_Robot();
+// vx and vy act as the speed/direction components
+void vector_motion(float vx, float vy); 
 
+// Standard movement with speed
+void degree_motion(int degree, int speed);
+void move_to(float position_x, float position_y, int speed);
+void move_along(char axis, float pos, int speed);
+
+// Rotation
+void UpdateRotation(RotationMode mode, int value);
 #endif

@@ -1,19 +1,16 @@
-#include <Robot.h>
+#include <Arduino.h>
 #include "RobotConstants.h"
 
-void setup() {
-  Robot_Init();
-}
+void setup() { Robot_Init(); }
 
 void loop() {
   // STEP 1
-  while(Check(S_BLUE_DIST, '>', 0)){
+  while(Check(S_TIMER, '>', 0)){
     UpdateSensors();
-    ExecuteMove(STYLE_LINEAR, M_POS_XY, 60, -17.5, 70.0);
-    UpdateRotation(R_FACE_BALL, 0);
-    if(Check(S_LINE_EXIST, '==', 1)) break;
+    move_along('Y', 69.0, 40);
+    UpdateRotation(R_DEGREE, 0, 30);
+    if(true) break;
   }
 
-  Stop_Robot();
-  while(1);
+  Stop_Robot(); while(1);
 }
